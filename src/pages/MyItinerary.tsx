@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { MapPin, Navigation, Trash2, Loader2, Calendar } from "lucide-react";
+import { MapPin, Navigation, Trash2, Loader2, Calendar, AlertCircle } from "lucide-react";
 import { Session } from "@supabase/supabase-js";
 
 interface SavedSpot {
@@ -205,52 +205,72 @@ const MyItinerary = () => {
                       Destinations ({itinerary.spots.length})
                     </h3>
                     <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {itinerary.spots.map((spot) => (
-                        <Card
-                          key={spot.id}
-                          className="overflow-hidden cursor-pointer hover:shadow-lg transition-all group"
-                          onClick={() => navigateToSpot(spot)}
-                        >
-                          {spot.image_url && (
-                            <div className="relative h-40 overflow-hidden">
-                              <img
-                                src={spot.image_url}
-                                alt={spot.name}
-                                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-                              />
-                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                              <div className="absolute bottom-2 right-2">
-                                <Button
-                                  size="sm"
-                                  className="gap-2 bg-primary/90 hover:bg-primary"
-                                >
-                                  <Navigation className="w-3 h-3" />
-                                  Get Directions
-                                </Button>
+                      {itinerary.spots.map((spot) => {
+                        const hasCoordinates = spot.latitude && spot.longitude;
+                        return (
+                          <Card
+                            key={spot.id}
+                            className={`overflow-hidden transition-all ${
+                              hasCoordinates ? "cursor-pointer hover:shadow-lg group" : ""
+                            }`}
+                            onClick={() => hasCoordinates && navigateToSpot(spot)}
+                          >
+                            {spot.image_url && (
+                              <div className="relative h-40 overflow-hidden">
+                                <img
+                                  src={spot.image_url}
+                                  alt={spot.name}
+                                  className={`w-full h-full object-cover transition-transform duration-300 ${
+                                    hasCoordinates ? "group-hover:scale-110" : ""
+                                  }`}
+                                />
+                                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                                <div className="absolute bottom-2 right-2">
+                                  <Button
+                                    size="sm"
+                                    className="gap-2 bg-primary/90 hover:bg-primary"
+                                    disabled={!hasCoordinates}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      navigateToSpot(spot);
+                                    }}
+                                  >
+                                    <Navigation className="w-3 h-3" />
+                                    Get Directions
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                            <div className="p-4">
+                              <div className="flex items-start justify-between gap-2 mb-1">
+                                <h4 className="font-semibold line-clamp-1">{spot.name}</h4>
+                                {!hasCoordinates && (
+                                  <Badge variant="secondary" className="text-xs gap-1 shrink-0">
+                                    <AlertCircle className="w-3 h-3" />
+                                    No GPS
+                                  </Badge>
+                                )}
+                              </div>
+                              {spot.description && (
+                                <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
+                                  {spot.description}
+                                </p>
+                              )}
+                              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                <MapPin className="w-3 h-3" />
+                                <span className="line-clamp-1">{spot.location}</span>
+                              </div>
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {spot.category.slice(0, 2).map((cat) => (
+                                  <Badge key={cat} variant="outline" className="text-xs">
+                                    {cat}
+                                  </Badge>
+                                ))}
                               </div>
                             </div>
-                          )}
-                          <div className="p-4">
-                            <h4 className="font-semibold mb-1 line-clamp-1">{spot.name}</h4>
-                            {spot.description && (
-                              <p className="text-sm text-muted-foreground mb-2 line-clamp-2">
-                                {spot.description}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <MapPin className="w-3 h-3" />
-                              <span className="line-clamp-1">{spot.location}</span>
-                            </div>
-                            <div className="flex flex-wrap gap-1 mt-2">
-                              {spot.category.slice(0, 2).map((cat) => (
-                                <Badge key={cat} variant="outline" className="text-xs">
-                                  {cat}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        </Card>
-                      ))}
+                          </Card>
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>
