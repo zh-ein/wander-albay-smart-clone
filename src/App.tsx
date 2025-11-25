@@ -13,7 +13,6 @@ import RoutePage from "./pages/RoutePage";
 import Dashboard from "./pages/Dashboard";
 import AdminDashboard from "./pages/AdminDashboard";
 import MapPage from "./pages/MapPage";
-import SpotsMapPage from "./pages/SpotsMapPage";
 import SpotDetail from "./pages/SpotDetail";
 import NotFound from "./pages/NotFound";
 import EmergencyHotlines from "./pages/EmergencyHotlinePage";
@@ -48,7 +47,6 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/map" element={<MapPage />} />
-            <Route path="/spots-map" element={<SpotsMapPage />} />
             <Route path="/emergency-hotlines" element={<EmergencyHotlines />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
