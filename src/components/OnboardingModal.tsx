@@ -58,7 +58,7 @@ export const OnboardingModal = ({ open, onComplete, userId }: OnboardingModalPro
 
       if (error) throw error;
 
-      toast.success("Preferences saved! Generating your personalized recommendations...");
+      toast.success("Preferences saved!");
       onComplete();
     } catch (error) {
       console.error("Error saving preferences:", error);
