@@ -60,6 +60,9 @@ const ManageRestaurants = () => {
     description: "",
     image_url: "",
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     fetchRestaurants();
@@ -126,6 +129,55 @@ const ManageRestaurants = () => {
     }
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select an image file');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image size should be less than 5MB');
+        return;
+      }
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImage = async (): Promise<string | null> => {
+    if (!imageFile) return formData.image_url || null;
+
+    setUploadingImage(true);
+    try {
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `restaurants/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('spot-images')
+        .upload(filePath, imageFile);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('spot-images')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error: any) {
+      console.error('Image upload error:', error);
+      toast.error('Failed to upload image: ' + error.message);
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const handleMunicipalityChange = (code: string) => {
     const selectedMunicipality = municipalities.find((m) => m.code === code);
     setFormData((prev) => ({
@@ -141,13 +193,22 @@ const ManageRestaurants = () => {
     e.preventDefault();
     setIsLoading(true);
 
+    // Upload image if a new file is selected
+    const imageUrl = await uploadImage();
+
+    if (imageFile && !imageUrl) {
+      toast.error('Failed to upload image. Please try again.');
+      setIsLoading(false);
+      return;
+    }
+
     const restaurantData = {
       name: formData.name,
       food_type: formData.food_type.length ? formData.food_type.join(", ") : null,
       location: formData.location,
       municipality: formData.municipality || null,
       description: formData.description || null,
-      image_url: formData.image_url || null,
+      image_url: imageUrl,
     };
 
     if (editingRestaurant) {
@@ -201,6 +262,8 @@ const ManageRestaurants = () => {
       description: restaurant.description || "",
       image_url: restaurant.image_url || "",
     });
+    setImagePreview(restaurant.image_url);
+    setImageFile(null);
 
     const muni = municipalities.find((m) => m.name === restaurant.municipality);
     if (muni?.code) {
@@ -226,6 +289,8 @@ const ManageRestaurants = () => {
     });
     setEditingRestaurant(null);
     setBarangays([]);
+    setImageFile(null);
+    setImagePreview(null);
     setIsDialogOpen(false);
   };
 
@@ -366,30 +431,57 @@ const ManageRestaurants = () => {
                 />
               </div>
 
-              {/* Image URL */}
+              {/* Image Upload */}
               <div>
-                <Label htmlFor="image">Image URL</Label>
+                <Label htmlFor="image-upload">Restaurant Image</Label>
                 <Input
-                  id="image"
-                  value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
-                  placeholder="https://..."
+                  id="image-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="cursor-pointer"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Upload an image (max 5MB, JPG/PNG/WEBP)
+                </p>
+                
+                {imagePreview && (
+                  <div className="mt-3 relative">
+                    <img 
+                      src={imagePreview} 
+                      alt="Preview" 
+                      className="w-full h-48 object-cover rounded-lg border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={() => {
+                        setImageFile(null);
+                        setImagePreview(null);
+                        setFormData({ ...formData, image_url: "" });
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* Form Actions */}
               <div className="flex gap-3 pt-4">
-                <Button type="submit" disabled={isLoading}>
-                  {isLoading ? (
+                <Button type="submit" disabled={isLoading || uploadingImage}>
+                  {isLoading || uploadingImage ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Saving...
+                      {uploadingImage ? "Uploading..." : "Saving..."}
                     </>
                   ) : (
                     <>{editingRestaurant ? "Update" : "Add"} Restaurant</>
                   )}
                 </Button>
-                <Button type="button" variant="outline" onClick={resetForm}>
+                <Button type="button" variant="outline" onClick={resetForm} disabled={isLoading || uploadingImage}>
                   Cancel
                 </Button>
               </div>
