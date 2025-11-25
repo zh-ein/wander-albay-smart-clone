@@ -149,14 +149,6 @@ const Navbar = () => {
               <Map className="w-4 h-4" />
               Navigate
             </Link>
-
-            <Link
-              to="/spots-map"
-              className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1"
-            >
-              <Map className="w-4 h-4" />
-              Spots Map
-            </Link>
           </div>
 
           {/* ✅ EMERGENCY HOTLINE BUTTON */}
