@@ -104,24 +104,25 @@ const UserManagement = () => {
   };
 
   const handleDeactivateUser = async (userId: string) => {
-    // Delete user's role to effectively deactivate them
-    const { error } = await supabase
-      .from("user_roles")
-      .delete()
-      .eq("user_id", userId);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to deactivate user",
-        variant: "destructive",
+    try {
+      const { error } = await supabase.functions.invoke("admin-create-user", {
+        method: "DELETE",
+        body: { userId },
       });
-    } else {
+
+      if (error) throw error;
+
       toast({
         title: "Success",
-        description: "User has been deactivated",
+        description: "User has been deleted",
       });
       fetchUsers();
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete user",
+        variant: "destructive",
+      });
     }
   };
 
@@ -156,25 +157,11 @@ const UserManagement = () => {
     setIsCreating(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/admin-create-user`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify(newUser),
-        }
-      );
+      const { data, error } = await supabase.functions.invoke("admin-create-user", {
+        body: newUser,
+      });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to create user");
-      }
+      if (error) throw error;
 
       toast({
         title: "Success",
@@ -410,14 +397,14 @@ const UserManagement = () => {
                         disabled={getUserRole(profile.id) === "admin"}
                       >
                         <UserX className="w-4 h-4 mr-2" />
-                        Deactivate
+                        Delete
                       </Button>
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
                         <AlertDialogTitle>Are you sure?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This will deactivate the user and remove their access to the system.
+                          This will permanently delete the user and all their data. This action cannot be undone.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
@@ -426,7 +413,7 @@ const UserManagement = () => {
                           onClick={() => handleDeactivateUser(profile.id)}
                           className="bg-destructive text-destructive-foreground"
                         >
-                          Deactivate
+                          Delete User
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
