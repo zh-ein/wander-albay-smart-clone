@@ -92,9 +92,9 @@ export default function VerifyOTP() {
 
       toast.success('Account created successfully! Welcome to Wanderer!');
       
-      // Navigate to homepage
+      // Navigate to dashboard for onboarding
       setTimeout(() => {
-        navigate('/');
+        navigate('/dashboard');
       }, 500);
     } catch (error: any) {
       console.error('OTP verification error:', error);
