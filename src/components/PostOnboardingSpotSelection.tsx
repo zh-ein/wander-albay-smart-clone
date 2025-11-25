@@ -134,7 +134,7 @@ export const PostOnboardingSpotSelection = ({
     setSelectedSpots(newSelected);
   };
 
-  const handleSaveToFavorites = async () => {
+  const handleCreateItinerary = async () => {
     if (selectedSpots.size === 0) {
       toast.error("Please select at least one spot");
       return;
@@ -142,24 +142,26 @@ export const PostOnboardingSpotSelection = ({
 
     setLoading(true);
     try {
-      // Add selected spots to favorites
-      const favoritesToInsert = Array.from(selectedSpots).map(spotId => ({
-        user_id: userId,
-        item_id: spotId,
-        item_type: "spot",
-      }));
-
+      // Get full spot data for selected spots
+      const selectedSpotsData = spots.filter(spot => selectedSpots.has(spot.id));
+      
+      // Create itinerary with selected spots
       const { error } = await supabase
-        .from("favorites")
-        .insert(favoritesToInsert);
+        .from("itineraries")
+        .insert([{
+          user_id: userId,
+          name: "My Personalized Itinerary",
+          spots: selectedSpotsData as any,
+          selected_categories: [...new Set(selectedSpotsData.flatMap(s => s.category))],
+        }]);
 
       if (error) throw error;
 
-      toast.success(`Added ${selectedSpots.size} spots to your favorites!`);
+      toast.success(`Created itinerary with ${selectedSpots.size} spots!`);
       onComplete();
     } catch (error) {
-      console.error("Error saving favorites:", error);
-      toast.error("Failed to save favorites");
+      console.error("Error creating itinerary:", error);
+      toast.error("Failed to create itinerary");
     } finally {
       setLoading(false);
     }
@@ -179,7 +181,7 @@ export const PostOnboardingSpotSelection = ({
           </DialogTitle>
           <DialogDescription>
             Based on your preferences, we've found these amazing destinations for you. 
-            Select the ones you'd like to add to your favorites, or let us auto-select the top recommendations.
+            Select the ones you'd like to add to your itinerary, or let us auto-select the top recommendations.
           </DialogDescription>
         </DialogHeader>
 
@@ -263,9 +265,9 @@ export const PostOnboardingSpotSelection = ({
               <Button variant="outline" onClick={handleSkip} disabled={loading}>
                 Skip for Now
               </Button>
-              <Button onClick={handleSaveToFavorites} disabled={loading || selectedSpots.size === 0}>
+              <Button onClick={handleCreateItinerary} disabled={loading || selectedSpots.size === 0}>
                 {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Add {selectedSpots.size > 0 ? `${selectedSpots.size}` : ""} to Favorites
+                Create Itinerary with {selectedSpots.size > 0 ? `${selectedSpots.size} spots` : ""}
               </Button>
             </div>
           </>
