@@ -12,7 +12,6 @@ import {
   Shield,
   Cloud,
   PhoneCall,
-  Heart,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Session } from "@supabase/supabase-js";
@@ -135,13 +134,6 @@ const Navbar = () => {
             {session && (
               <>
                 <Link
-                  to="/favorites"
-                  className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1"
-                >
-                  <Heart className="w-4 h-4" />
-                  Favorites
-                </Link>
-                <Link
                   to="/itinerary"
                   className="text-sm font-medium hover:text-primary transition-colors flex items-center gap-1"
                 >
@@ -253,14 +245,6 @@ const Navbar = () => {
 
             {session && (
               <>
-                <Link
-                  to="/favorites"
-                  className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-lg"
-                  onClick={() => setIsMenuOpen(false)}
-                >
-                  <Heart className="w-4 h-4 inline mr-2" />
-                  Favorites
-                </Link>
                 <Link
                   to="/itinerary"
                   className="block px-4 py-2 text-sm font-medium hover:bg-muted rounded-lg"
