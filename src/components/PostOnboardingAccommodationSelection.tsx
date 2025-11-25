@@ -133,7 +133,7 @@ export const PostOnboardingAccommodationSelection = ({
     setSelectedAccommodations(newSelected);
   };
 
-  const handleSaveToFavorites = async () => {
+  const handleCreateItinerary = async () => {
     if (selectedAccommodations.size === 0) {
       toast.error("Please select at least one accommodation");
       return;
@@ -141,24 +141,26 @@ export const PostOnboardingAccommodationSelection = ({
 
     setLoading(true);
     try {
-      // Add selected accommodations to favorites
-      const favoritesToInsert = Array.from(selectedAccommodations).map(accId => ({
-        user_id: userId,
-        item_id: accId,
-        item_type: "accommodation",
-      }));
-
+      // Get full accommodation data for selected accommodations
+      const selectedAccommodationsData = accommodations.filter(acc => selectedAccommodations.has(acc.id));
+      
+      // Create itinerary with selected accommodations
       const { error } = await supabase
-        .from("favorites")
-        .insert(favoritesToInsert);
+        .from("itineraries")
+        .insert([{
+          user_id: userId,
+          name: "My Accommodation Itinerary",
+          spots: selectedAccommodationsData as any,
+          selected_categories: [...new Set(selectedAccommodationsData.flatMap(a => a.category))],
+        }]);
 
       if (error) throw error;
 
-      toast.success(`Added ${selectedAccommodations.size} accommodations to your favorites!`);
+      toast.success(`Created itinerary with ${selectedAccommodations.size} accommodations!`);
       onComplete();
     } catch (error) {
-      console.error("Error saving favorites:", error);
-      toast.error("Failed to save favorites");
+      console.error("Error creating itinerary:", error);
+      toast.error("Failed to create itinerary");
     } finally {
       setLoading(false);
     }
@@ -183,7 +185,7 @@ export const PostOnboardingAccommodationSelection = ({
           </DialogTitle>
           <DialogDescription>
             Based on your preferences, we've found these great places to stay. 
-            Select the ones you'd like to add to your favorites, or let us auto-select the top recommendations.
+            Select the ones you'd like to add to your itinerary, or let us auto-select the top recommendations.
           </DialogDescription>
         </DialogHeader>
 
@@ -277,9 +279,9 @@ export const PostOnboardingAccommodationSelection = ({
               <Button variant="outline" onClick={handleSkip} disabled={loading}>
                 Skip for Now
               </Button>
-              <Button onClick={handleSaveToFavorites} disabled={loading || selectedAccommodations.size === 0}>
+              <Button onClick={handleCreateItinerary} disabled={loading || selectedAccommodations.size === 0}>
                 {loading && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                Add {selectedAccommodations.size > 0 ? `${selectedAccommodations.size}` : ""} to Favorites
+                Create Itinerary with {selectedAccommodations.size > 0 ? `${selectedAccommodations.size} accommodations` : ""}
               </Button>
             </div>
           </>
