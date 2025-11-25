@@ -65,22 +65,55 @@ const PersonalizedFeed = ({ userId }: PersonalizedFeedProps) => {
 
       if (error) throw error;
 
-      // Score and filter spots based on preferences
+      // Score and filter spots based on Albay-specific preferences
       const scoredSpots = allSpots?.map((spot) => {
         let score = 0;
 
+        // Match Albay district
+        if (prefs.albayDistrict && prefs.albayDistrict !== "Any District" && spot.municipality) {
+          const districtMatch = (() => {
+            if (prefs.albayDistrict === "District 1") {
+              return ["Tabaco", "Tiwi", "Malinao", "Bacacay"].some(m => 
+                spot.municipality?.toLowerCase().includes(m.toLowerCase())
+              );
+            }
+            if (prefs.albayDistrict === "District 2") {
+              return ["Legazpi", "Daraga", "Camalig", "Manito"].some(m => 
+                spot.municipality?.toLowerCase().includes(m.toLowerCase())
+              );
+            }
+            if (prefs.albayDistrict === "District 3") {
+              return ["Ligao", "Guinobatan", "Pioduran", "Jovellar", "Oas", "Polangui", "Libon"].some(m => 
+                spot.municipality?.toLowerCase().includes(m.toLowerCase())
+              );
+            }
+            return false;
+          })();
+          if (districtMatch) score += 5;
+        }
+
         // Traveler type matching
-        if (prefs.travelerType?.includes("Adventure Seeker") && spot.category?.includes("Adventure")) score += 3;
-        if (prefs.travelerType?.includes("Nature Lover") && spot.category?.includes("Nature")) score += 3;
-        if (prefs.travelerType?.includes("Cultural/Historical Traveler") && 
-            (spot.category?.includes("Cultural") || spot.category?.includes("Historical"))) score += 3;
-        if (prefs.travelerType?.includes("Food Explorer") && spot.category?.includes("Food")) score += 3;
+        if (prefs.travelerType && spot.category) {
+          if (prefs.travelerType === "Nature Lover" && spot.category.some((c: string) => 
+            c.toLowerCase().includes("nature") || c.toLowerCase().includes("eco"))) score += 3;
+          if (prefs.travelerType === "Adventure Seeker" && spot.category.some((c: string) => 
+            c.toLowerCase().includes("adventure") || c.toLowerCase().includes("hiking"))) score += 3;
+          if (prefs.travelerType === "Food Explorer" && spot.category.some((c: string) => 
+            c.toLowerCase().includes("food") || c.toLowerCase().includes("restaurant"))) score += 3;
+          if (prefs.travelerType === "Cultural/Historical Traveler" && spot.category.some((c: string) => 
+            c.toLowerCase().includes("cultural") || c.toLowerCase().includes("historical"))) score += 3;
+        }
 
         // Activity matching
-        if (prefs.activities?.includes("Hiking") && spot.category?.includes("Adventure")) score += 2;
-        if (prefs.activities?.includes("Swimming/Beach") && spot.category?.includes("Beach")) score += 2;
-        if (prefs.activities?.includes("Historical Tours") && spot.category?.includes("Historical")) score += 2;
-        if (prefs.activities?.includes("Wildlife/Eco Tours") && spot.category?.includes("Nature")) score += 2;
+        if (prefs.activities && Array.isArray(prefs.activities) && spot.category) {
+          prefs.activities.forEach((activity: string) => {
+            if (activity.includes("Hiking") && spot.category.some((c: string) => c.toLowerCase().includes("hiking"))) score += 2;
+            if (activity.includes("Beach") && spot.category.some((c: string) => c.toLowerCase().includes("beach"))) score += 2;
+            if (activity.includes("Waterfall") && spot.category.some((c: string) => c.toLowerCase().includes("waterfall"))) score += 2;
+            if (activity.includes("Food") && spot.category.some((c: string) => c.toLowerCase().includes("food"))) score += 2;
+            if (activity.includes("Historical") && spot.category.some((c: string) => c.toLowerCase().includes("historical"))) score += 2;
+          });
+        }
 
         // Budget matching
         const budgetMap: { [key: string]: string } = {
@@ -92,21 +125,19 @@ const PersonalizedFeed = ({ userId }: PersonalizedFeedProps) => {
           if (spot.budget_level === budgetMap[prefs.budgetRange]) score += 2;
         }
 
-        // Hidden gem preference
+        // Place preference
         if (prefs.placePreference === "Hidden Gems" && spot.is_hidden_gem) score += 3;
-        if (prefs.placePreference === "Popular" && !spot.is_hidden_gem) score += 2;
+        if (prefs.placePreference === "Popular Tourist Spots" && !spot.is_hidden_gem) score += 2;
         if (prefs.placePreference === "Both") score += 1;
 
         // Accessibility
         if (prefs.accessibilityNeeded && spot.accessibility_friendly) score += 3;
 
         // Scenery preference
-        if (prefs.sceneryPreference && spot.scenery_type) {
-          const sceneryMatch = prefs.sceneryPreference.some((pref: string) =>
-            spot.scenery_type?.some((type: string) => 
-              type.toLowerCase().includes(pref.toLowerCase()) ||
-              pref.toLowerCase().includes(type.toLowerCase())
-            )
+        if (prefs.sceneryPreference && prefs.sceneryPreference !== "No preference" && spot.scenery_type) {
+          const sceneryMatch = spot.scenery_type.some((type: string) => 
+            type.toLowerCase().includes(prefs.sceneryPreference.toLowerCase()) ||
+            prefs.sceneryPreference.toLowerCase().includes(type.toLowerCase())
           );
           if (sceneryMatch) score += 2;
         }
@@ -117,8 +148,8 @@ const PersonalizedFeed = ({ userId }: PersonalizedFeedProps) => {
         return { ...spot, score };
       }) || [];
 
-      // Sort by score and take top recommendations based on travel pace
-      const recommendationCount = prefs.travelPace === "Fast" ? 12 : prefs.travelPace === "Slow" ? 6 : 8;
+      // Sort by score and take top recommendations
+      const recommendationCount = 8;
       const topSpots = scoredSpots
         .filter((spot) => spot.score > 0)
         .sort((a, b) => b.score - a.score)
