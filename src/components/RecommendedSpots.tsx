@@ -21,9 +21,16 @@ interface TouristSpot {
 }
 
 interface UserPreferences {
-  interests: string[];
-  districts: string[];
-  trip_intent: string[];
+  albayDistrict: string;
+  travelerType: string;
+  activities: string[];
+  sceneryPreference: string;
+  placePreference: string;
+  budgetRange: string;
+  accessibilityNeeded: boolean;
+  travelMode: string;
+  travelCompanions: string;
+  autoRecommendations: boolean;
 }
 
 interface RecommendedSpotsProps {
@@ -50,46 +57,59 @@ const RecommendedSpots = ({ preferences, userId }: RecommendedSpotsProps) => {
       if (error) throw error;
 
       if (data) {
-        // Filter and score spots based on user preferences
+        // Filter and score spots based on Albay-specific preferences
         const scoredSpots = data.map(spot => {
           let score = 0;
           
-          // Match interests with categories
-          if (preferences.interests && spot.category) {
-            const matchingInterests = preferences.interests.filter(interest => 
-              spot.category.some(cat => 
-                interest.toLowerCase().includes(cat.toLowerCase()) ||
-                cat.toLowerCase().includes(interest.toLowerCase())
-              )
-            );
-            score += matchingInterests.length * 3;
-          }
-
-          // Match districts with municipality
-          if (preferences.districts && spot.municipality) {
-            const districtMatch = preferences.districts.some(district => {
-              if (district === "District 1") {
-                return ["Bacacay", "Malilipot", "Malinao", "Santo Domingo", "Tiwi", "Tabaco"].some(m => 
-                  spot.municipality?.includes(m)
+          // Match Albay district with municipality
+          if (preferences.albayDistrict && preferences.albayDistrict !== "Any District" && spot.municipality) {
+            const districtMatch = (() => {
+              if (preferences.albayDistrict === "District 1") {
+                return ["Tabaco", "Tiwi", "Malinao", "Bacacay"].some(m => 
+                  spot.municipality?.toLowerCase().includes(m.toLowerCase())
                 );
               }
-              if (district === "District 2") {
-                return ["Camalig", "Guinobatan", "Ligao", "Jovellar"].some(m => 
-                  spot.municipality?.includes(m)
+              if (preferences.albayDistrict === "District 2") {
+                return ["Legazpi", "Daraga", "Camalig", "Manito"].some(m => 
+                  spot.municipality?.toLowerCase().includes(m.toLowerCase())
                 );
               }
-              if (district === "District 3") {
-                return ["Legazpi", "Daraga", "Manito", "Rapu-Rapu"].some(m => 
-                  spot.municipality?.includes(m)
+              if (preferences.albayDistrict === "District 3") {
+                return ["Ligao", "Guinobatan", "Pioduran", "Jovellar", "Oas", "Polangui", "Libon"].some(m => 
+                  spot.municipality?.toLowerCase().includes(m.toLowerCase())
                 );
               }
               return false;
-            });
+            })();
             if (districtMatch) score += 5;
           }
 
-          // Boost hidden gems
-          if (spot.is_hidden_gem) score += 2;
+          // Match traveler type with categories
+          if (preferences.travelerType && spot.category) {
+            if (preferences.travelerType === "Nature Lover" && spot.category.some(c => 
+              c.toLowerCase().includes("nature") || c.toLowerCase().includes("eco"))) score += 3;
+            if (preferences.travelerType === "Adventure Seeker" && spot.category.some(c => 
+              c.toLowerCase().includes("adventure") || c.toLowerCase().includes("hiking"))) score += 3;
+            if (preferences.travelerType === "Food Explorer" && spot.category.some(c => 
+              c.toLowerCase().includes("food") || c.toLowerCase().includes("restaurant"))) score += 3;
+            if (preferences.travelerType === "Cultural/Historical Traveler" && spot.category.some(c => 
+              c.toLowerCase().includes("cultural") || c.toLowerCase().includes("historical"))) score += 3;
+          }
+
+          // Match activities
+          if (preferences.activities && preferences.activities.length > 0 && spot.category) {
+            preferences.activities.forEach(activity => {
+              if (activity.includes("Hiking") && spot.category.some(c => c.toLowerCase().includes("hiking"))) score += 2;
+              if (activity.includes("Beach") && spot.category.some(c => c.toLowerCase().includes("beach"))) score += 2;
+              if (activity.includes("Waterfall") && spot.category.some(c => c.toLowerCase().includes("waterfall"))) score += 2;
+              if (activity.includes("Food") && spot.category.some(c => c.toLowerCase().includes("food"))) score += 2;
+              if (activity.includes("Historical") && spot.category.some(c => c.toLowerCase().includes("historical"))) score += 2;
+            });
+          }
+
+          // Match place preference
+          if (preferences.placePreference === "Hidden Gems" && spot.is_hidden_gem) score += 3;
+          if (preferences.placePreference === "Popular Tourist Spots" && !spot.is_hidden_gem) score += 2;
 
           // Boost highly rated spots
           if (spot.rating) score += (spot.rating / 5) * 2;
