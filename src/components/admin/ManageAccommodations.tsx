@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Plus, Pencil, Trash2, Building2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Building2, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 
@@ -65,6 +65,9 @@ const ManageAccommodations = () => {
     amenities: [] as string[],
     rating: 0,
   });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
     fetchAccommodations();
@@ -118,6 +121,55 @@ const ManageAccommodations = () => {
     if (code) fetchBarangays(code);
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select an image file');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image size should be less than 5MB');
+        return;
+      }
+      setImageFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const uploadImage = async (): Promise<string | null> => {
+    if (!imageFile) return formData.image_url || null;
+
+    setUploadingImage(true);
+    try {
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = `accommodations/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('spot-images')
+        .upload(filePath, imageFile);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('spot-images')
+        .getPublicUrl(filePath);
+
+      return publicUrl;
+    } catch (error: any) {
+      console.error('Image upload error:', error);
+      toast.error('Failed to upload image: ' + error.message);
+      return null;
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       name: "",
@@ -134,17 +186,28 @@ const ManageAccommodations = () => {
     });
     setBarangays([]);
     setEditingId(null);
+    setImageFile(null);
+    setImagePreview(null);
     setIsOpen(false);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Upload image if a new file is selected
+    const imageUrl = await uploadImage();
+
+    if (imageFile && !imageUrl) {
+      toast.error('Failed to upload image. Please try again.');
+      return;
+    }
+
     const accommodationData = {
-  ...formData,
-  // Remove .join
-  category: formData.category.length ? formData.category : null,
-  amenities: formData.amenities.length ? formData.amenities : null,
-};
+      ...formData,
+      image_url: imageUrl,
+      category: formData.category.length ? formData.category : null,
+      amenities: formData.amenities.length ? formData.amenities : null,
+    };
 
     if (editingId) {
       const { error } = await supabase.from("accommodations").update(accommodationData).eq("id", editingId);
@@ -179,6 +242,8 @@ const ManageAccommodations = () => {
       amenities: accommodation.amenities || [],
       rating: accommodation.rating || 0,
     });
+    setImagePreview(accommodation.image_url);
+    setImageFile(null);
     setEditingId(accommodation.id);
     setIsOpen(true);
     if (accommodation.municipality) {
@@ -390,15 +455,42 @@ const ManageAccommodations = () => {
                 </div>
               </div>
 
-              {/* Image & Contact Info */}
+              {/* Image Upload */}
               <div>
-                <Label htmlFor="image_url">Image URL</Label>
+                <Label htmlFor="image-upload">Accommodation Image</Label>
                 <Input
-                  id="image_url"
-                  type="url"
-                  value={formData.image_url}
-                  onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
+                  id="image-upload"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="cursor-pointer"
                 />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Upload an image (max 5MB, JPG/PNG/WEBP)
+                </p>
+                
+                {imagePreview && (
+                  <div className="mt-3 relative">
+                    <img 
+                      src={imagePreview} 
+                      alt="Preview" 
+                      className="w-full h-48 object-cover rounded-lg border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      className="absolute top-2 right-2"
+                      onClick={() => {
+                        setImageFile(null);
+                        setImagePreview(null);
+                        setFormData({ ...formData, image_url: "" });
+                      }}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -438,10 +530,19 @@ const ManageAccommodations = () => {
 
               {/* Form Actions */}
               <div className="flex justify-end gap-2">
-                <Button type="button" variant="outline" onClick={resetForm}>
+                <Button type="button" variant="outline" onClick={resetForm} disabled={uploadingImage}>
                   Cancel
                 </Button>
-                <Button type="submit">{editingId ? "Update" : "Add"} Accommodation</Button>
+                <Button type="submit" disabled={uploadingImage}>
+                  {uploadingImage ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>{editingId ? "Update" : "Add"} Accommodation</>
+                  )}
+                </Button>
               </div>
             </form>
           </DialogContent>
