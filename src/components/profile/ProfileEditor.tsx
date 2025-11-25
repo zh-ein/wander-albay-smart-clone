@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2, Upload, X } from "lucide-react";
+import { toast as sonnerToast } from "sonner";
 
 interface ProfileEditorProps {
   userId: string;
@@ -21,7 +22,88 @@ export const ProfileEditor = ({ userId, currentName, currentBio, currentAvatarUr
   const [bio, setBio] = useState(currentBio || "");
   const [avatarUrl, setAvatarUrl] = useState(currentAvatarUrl || "");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      sonnerToast.error('Please select an image file');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      sonnerToast.error('Image size must be less than 5MB');
+      return;
+    }
+
+    setSelectedFile(file);
+    
+    // Preview the image
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setAvatarUrl(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      sonnerToast.error('Please select an image first');
+      return;
+    }
+
+    setIsUploading(true);
+
+    try {
+      // Delete old avatar if exists
+      if (currentAvatarUrl && currentAvatarUrl.includes('avatars/')) {
+        const oldPath = currentAvatarUrl.split('avatars/')[1].split('?')[0];
+        await supabase.storage.from('avatars').remove([oldPath]);
+      }
+
+      // Upload new avatar
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${userId}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError, data } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, selectedFile, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+
+      setAvatarUrl(publicUrl);
+      setSelectedFile(null);
+      sonnerToast.success('Image uploaded successfully');
+    } catch (error) {
+      console.error('Error uploading image:', error);
+      sonnerToast.error('Failed to upload image');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const removeSelectedFile = () => {
+    setSelectedFile(null);
+    setAvatarUrl(currentAvatarUrl || "");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,22 +154,83 @@ export const ProfileEditor = ({ userId, currentName, currentBio, currentAvatarUr
             {fullName ? fullName.charAt(0).toUpperCase() : "U"}
           </AvatarFallback>
         </Avatar>
-        <div className="w-full">
-          <Label htmlFor="avatarUrl">Profile Picture URL</Label>
-          <div className="flex gap-2">
-            <Input
-              id="avatarUrl"
-              value={avatarUrl}
-              onChange={(e) => setAvatarUrl(e.target.value)}
-              placeholder="https://example.com/avatar.jpg"
+        
+        <div className="w-full space-y-3">
+          <Label>Profile Picture</Label>
+          
+          {/* File Upload Section */}
+          <div className="space-y-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+              id="avatar-upload"
             />
-            <Button type="button" variant="outline" size="icon" title="Upload image">
-              <Upload className="w-4 h-4" />
-            </Button>
+            
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                {selectedFile ? selectedFile.name : 'Choose Image'}
+              </Button>
+              
+              {selectedFile && (
+                <>
+                  <Button
+                    type="button"
+                    variant="default"
+                    onClick={handleUpload}
+                    disabled={isUploading}
+                  >
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      'Upload'
+                    )}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={removeSelectedFile}
+                    disabled={isUploading}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </>
+              )}
+            </div>
+            
+            <p className="text-xs text-muted-foreground">
+              Max size: 5MB. Supported formats: JPG, PNG, GIF, WEBP
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            Enter an image URL for your profile picture
-          </p>
+
+          {/* Or URL Input */}
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">Or use URL</span>
+            </div>
+          </div>
+          
+          <Input
+            value={avatarUrl}
+            onChange={(e) => setAvatarUrl(e.target.value)}
+            placeholder="https://example.com/avatar.jpg"
+          />
         </div>
       </div>
 
