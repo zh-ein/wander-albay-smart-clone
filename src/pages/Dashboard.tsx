@@ -12,6 +12,7 @@ import { Session } from "@supabase/supabase-js";
 import { toast } from "sonner";
 import { MapPin, Trash2, Calendar, Sparkles, Edit, RefreshCw } from "lucide-react";
 import { OnboardingModal } from "@/components/OnboardingModal";
+import { PostOnboardingSpotSelection } from "@/components/PostOnboardingSpotSelection";
 import RecommendedSpots from "@/components/RecommendedSpots";
 import EventNotifications from "@/components/EventNotifications";
 import NearbyRestaurants from "@/components/NearbyRestaurants";
@@ -32,6 +33,7 @@ const Dashboard = () => {
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showSpotSelection, setShowSpotSelection] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -112,14 +114,29 @@ const Dashboard = () => {
       <Navbar />
 
       {session && (
-        <OnboardingModal
-          open={showOnboarding}
-          onComplete={() => {
-            setShowOnboarding(false);
-            fetchProfile(session.user.id);
-          }}
-          userId={session.user.id}
-        />
+        <>
+          <OnboardingModal
+            open={showOnboarding}
+            onComplete={() => {
+              setShowOnboarding(false);
+              fetchProfile(session.user.id);
+              setShowSpotSelection(true);
+            }}
+            userId={session.user.id}
+          />
+          
+          {profile?.user_preferences && (
+            <PostOnboardingSpotSelection
+              open={showSpotSelection}
+              onComplete={() => {
+                setShowSpotSelection(false);
+                fetchProfile(session.user.id);
+              }}
+              userId={session.user.id}
+              preferences={profile.user_preferences}
+            />
+          )}
+        </>
       )}
 
       <div className="container py-12">
