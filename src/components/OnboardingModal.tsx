@@ -10,6 +10,7 @@ import { Loader2, ArrowRight, ArrowLeft } from "lucide-react";
 
 interface OnboardingModalProps {
   open: boolean;
+  onOpenChange: (open: boolean) => void;
   onComplete: () => void;
   userId: string;
 }
@@ -27,7 +28,7 @@ interface UserPreferences {
   autoRecommendations: boolean;
 }
 
-export const OnboardingModal = ({ open, onComplete, userId }: OnboardingModalProps) => {
+export const OnboardingModal = ({ open, onOpenChange, onComplete, userId }: OnboardingModalProps) => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [preferences, setPreferences] = useState<UserPreferences>({
@@ -331,7 +332,7 @@ export const OnboardingModal = ({ open, onComplete, userId }: OnboardingModalPro
   };
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-2xl">
