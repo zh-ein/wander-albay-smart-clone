@@ -153,6 +153,7 @@ const Index = () => {
       {showOnboarding && userId && (
         <OnboardingModal
           open={showOnboarding}
+          onOpenChange={setShowOnboarding}
           onComplete={handleOnboardingComplete}
           userId={userId}
         />

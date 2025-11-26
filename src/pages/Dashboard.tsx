@@ -119,6 +119,7 @@ const Dashboard = () => {
         <>
           <OnboardingModal
             open={showOnboarding}
+            onOpenChange={setShowOnboarding}
             onComplete={() => {
               setShowOnboarding(false);
               fetchProfile(session.user.id);
